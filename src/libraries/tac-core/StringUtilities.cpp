@@ -1,5 +1,3 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -36,75 +34,58 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "StringUtilities.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+#include <algorithm>
+#include <cctype>
+#include <sstream>
 
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
-#include <string>
-
-class DevTACCore :
-	public AlpacaSharedLibrary
+std::string toCamelCase(const std::string& camelCaseMe, char splitChar)
 {
-public:
-	DevTACCore()
-	{
-	}
+    std::string result;
+    std::istringstream ss(camelCaseMe);
+    std::string part;
+    while (std::getline(ss, part, splitChar))
+    {
+        if (part.empty()) continue;
+        part[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(part[0])));
+        result += part;
+    }
+    return result;
+}
 
-	~DevTACCore()
-	{
-	}
+bool isAlphaNumeric(const std::string& testMe)
+{
+    for (const auto c : testMe)
+    {
+        if (std::isalnum(static_cast<unsigned char>(c)) == 0)
+            return false;
+    }
+    return true;
+}
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+std::string fromBool(bool value)
+{
+    return value ? "true" : "false";
+}
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
+HashType strHash(const std::string& hashMe)
+{
+    return arrayHash(hashMe);
+}
 
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
-};
-
-#endif // TACDEVCORE_H
+HashType arrayHash(const std::string& hashMe)
+{
+    uint64_t result{0};
+    const uint64_t p = 257;
+    const uint64_t m = 1000000009ULL;
+    uint64_t p_pow = 1;
+    for (const auto c : hashMe)
+    {
+        result = (result + (static_cast<unsigned char>(c) - 'a' + 1) * p_pow) % m;
+        p_pow = (p_pow * p) % m;
+    }
+    return result;
+}

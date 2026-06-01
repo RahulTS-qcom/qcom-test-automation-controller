@@ -1,5 +1,6 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef NOTIFICATION_H
+#define NOTIFICATION_H
+
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -35,76 +36,39 @@
 */
 
 /*
-	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
+    Author: Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
+#include <cstdint>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+enum QCOMMONCONSOLE_EXPORT NotificationLevel
 {
-public:
-	DevTACCore()
-	{
-	}
-
-	~DevTACCore()
-	{
-	}
-
-	bool initialize(const std::string& appName, const std::string& appVersion);
-
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+    eDebugNotification = 0,
+    eInfoNotification,
+    eWarnNotification,
+    eErrorNotification
 };
 
-#endif // TACDEVCORE_H
+const uint8_t  kProgressActive{0};
+const uint8_t  kProgressMax{100};
+const uint32_t kNotificationLabelWidth{320};
+const uint32_t kNotificationLabelHeight{80};
+
+class QCOMMONCONSOLE_EXPORT Notification
+{
+public:
+    Notification(const std::string& message, NotificationLevel level)
+        : _message(message), _level(level) {}
+
+    std::string       getMessage() const { return _message; }
+    NotificationLevel getLevel()   const { return _level; }
+
+private:
+    std::string       _message;
+    NotificationLevel _level{eInfoNotification};
+};
+
+#endif // NOTIFICATION_H

@@ -1,5 +1,5 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef ALPACADEFINES_H
+#define ALPACADEFINES_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -36,75 +36,26 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
+#include "StringProof.h"
+#include "version.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
+#include <cstdint>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
-{
-public:
-	DevTACCore()
-	{
-	}
+const std::string kProductName{"QTAC"};
+const char kProductID[] = "1e48f695-c109-11ec-aebb-063166a9270b"; // QTAC External
+const char kCoreFeature[] = "1e71efc7-c109-11ec-aebb-063166a9270b";
 
-	~DevTACCore()
-	{
-	}
+const std::string kOrganizationName{"Qualcomm, Inc."};
+const std::string kProductVersion{ALPACA_VERSION};
+const std::string kCompileDate{__DATE__};
+const std::string kCompileTime{__TIME__};
+const std::string kBuildTime{std::string(__DATE__) + " " + std::string(__TIME__)};
+const std::string kVersionGUID{"{6F01E0AB-1962-4054-C061-3CA7CA4397E0}"};
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+uint32_t QCOMMONCONSOLE_EXPORT makeFirmwareVersion(uint32_t hw, uint32_t major, uint32_t minor);
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
-};
-
-#endif // TACDEVCORE_H
+#endif // ALPACADEFINES_H

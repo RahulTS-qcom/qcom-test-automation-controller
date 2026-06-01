@@ -1,5 +1,5 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef VERSION_H
+#define VERSION_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -39,72 +39,27 @@
 			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#define ALPACA_VERSION			"5.5.2"
+#define EPM_SERVER_VERSION		"2.0.0"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+#define EPM_SCOPE_VERSION		"2.0.0"
+#define ALPACA_VIEWER_VERSION	"2.0.0"
+#define BUG_WRITER_VERSION		"2.0.0"
+#define DEVICE_CATALOG_VERSION	"3.0.0"		// major.minor.patch"
+#define EPM_VERSION				"3.0.0"
+#define EPM_EDITOR_VERSION		"2.0.0"
+#define EEPROM_UTL_VERSION		"2.0.0"
+#define FTDI_CHECK_VERSION		"2.0.0"
+#define TAC_VERSION				"7.0.1"
+#define TACCOM_VERSION			"2.0.0"
+#define TAC_CONFIG_VERSION		"3.0.0"
+#define TAC_TERMINAL_VERSION	"2.0.0"
 
-// QCommon
-#include "AlpacaSharedLibrary.h"
+#define TAC_LIB_VERSION			"3.0.1"
+#define QCOMMON_VERSION			"2.0.0"
+#define EEPROM_COMMAND			"2.0.0"
+#define LITE_PGR_COMMAND		"2.0.0"
+#define UPDATE_DEVICE_LIST		"2.0.0"
+#define FW_UPDATE_VERSION       "3.0.0"
 
-#include <map>
-#include <mutex>
-#include <string>
-
-class DevTACCore :
-	public AlpacaSharedLibrary
-{
-public:
-	DevTACCore()
-	{
-	}
-
-	~DevTACCore()
-	{
-	}
-
-	bool initialize(const std::string& appName, const std::string& appVersion);
-
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
-};
-
-#endif // TACDEVCORE_H
+#endif // VERSION_H

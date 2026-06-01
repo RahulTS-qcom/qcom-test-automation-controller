@@ -1,5 +1,5 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef COMMANDGROUP_H
+#define COMMANDGROUP_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -36,75 +36,62 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
 #include <string>
+#include <vector>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+enum CommandGroups
 {
-public:
-	DevTACCore()
-	{
-	}
-
-	~DevTACCore()
-	{
-	}
-
-	bool initialize(const std::string& appName, const std::string& appVersion);
-
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+	eUnknownCommandGroup = 0,
+	eConnectionGroup,
+	eButtonGroup,
+	eSwitchGroup,
+	eQuickSettingsGroup
 };
 
-#endif // TACDEVCORE_H
+class QCOMMONCONSOLE_EXPORT CommandGroup
+{
+public:
+	static std::string toString(CommandGroups commandGroup)
+	{
+		switch (commandGroup)
+		{
+		case eConnectionGroup:    return "Connections";
+		case eButtonGroup:        return "Buttons";
+		case eSwitchGroup:        return "Switches";
+		case eQuickSettingsGroup: return "Quick Settings";
+		default:;
+		}
+		return {};
+	}
+
+	static std::vector<std::string> toStringList()
+	{
+		return {
+			"<Select Pin Group>",
+			toString(eConnectionGroup),
+			toString(eButtonGroup),
+			toString(eSwitchGroup),
+			toString(eQuickSettingsGroup)
+		};
+	}
+
+	static CommandGroups fromString(const std::string& commandGroupStr)
+	{
+		std::string temp;
+		for (auto c : commandGroupStr)
+			temp += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+		if (temp == "connections")   return eConnectionGroup;
+		if (temp == "buttons")       return eButtonGroup;
+		if (temp == "switches")      return eSwitchGroup;
+		if (temp == "quick settings") return eQuickSettingsGroup;
+
+		return eUnknownCommandGroup;
+	}
+};
+
+#endif // COMMANDGROUP_H

@@ -1,24 +1,24 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef CONSOLEAPPLICATIONENHANCEMENTS_H
+#define CONSOLEAPPLICATIONENHANCEMENTS_H
 /*
-	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-
+	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+	 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted (subject to the limitations in the
 	disclaimer below) provided that the following conditions are met:
-
+	 
 		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
-
+	 
 		* Redistributions in binary form must reproduce the above
 		  copyright notice, this list of conditions and the following
 		  disclaimer in the documentation and/or other materials provided
 		  with the distribution.
-
+	 
 		* Neither the name of Qualcomm Technologies, Inc. nor the names of its
 		  contributors may be used to endorse or promote products derived
 		  from this software without specific prior written permission.
-
+	 
 	NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 	GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 	HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -39,72 +39,28 @@
 			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
-
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
 // QCommon
-#include "AlpacaSharedLibrary.h"
+#include "QCommonConsoleGlobal.h"
 
-#include <map>
-#include <mutex>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
-{
-public:
-	DevTACCore()
-	{
-	}
+std::string QCOMMONCONSOLE_EXPORT applicationBinPath();
+std::string QCOMMONCONSOLE_EXPORT applicationDataPath();
+std::string QCOMMONCONSOLE_EXPORT documentsDataPath(const std::string& append);
+std::string QCOMMONCONSOLE_EXPORT defaultGlobalLoggingPath();
+std::string QCOMMONCONSOLE_EXPORT defaultLoggingPath(const std::string& appName);
 
-	~DevTACCore()
-	{
-	}
+std::string QCOMMONCONSOLE_EXPORT killOneDrive(const std::string& testPath, const std::string& revertPath);
+std::string QCOMMONCONSOLE_EXPORT createFilenameTimeStamp();
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+std::string QCOMMONCONSOLE_EXPORT getModuleFilePath(const std::string& moduleFileName);
+std::string QCOMMONCONSOLE_EXPORT expandPath(const std::string& filePath);
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
+std::string QCOMMONCONSOLE_EXPORT tacConfigRoot(bool expandPath = true);
+std::string QCOMMONCONSOLE_EXPORT epmConfigRoot();
 
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
+bool QCOMMONCONSOLE_EXPORT isUserPrivileged();
+bool QCOMMONCONSOLE_EXPORT executeBinaryAsAdministrator(const std::string& binary, const std::string& cmdArgs);
 
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
+#endif
 
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
-};
-
-#endif // TACDEVCORE_H

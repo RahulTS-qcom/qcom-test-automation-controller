@@ -1,22 +1,22 @@
 /*
-	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
-	 
+	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted (subject to the limitations in the
 	disclaimer below) provided that the following conditions are met:
-	 
+
 		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
-	 
+
 		* Redistributions in binary form must reproduce the above
 		  copyright notice, this list of conditions and the following
 		  disclaimer in the documentation and/or other materials provided
 		  with the distribution.
-	 
+
 		* Neither the name of Qualcomm Technologies, Inc. nor the names of its
 		  contributors may be used to endorse or promote products derived
 		  from this software without specific prior written permission.
-	 
+
 	NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 	GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 	HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -41,19 +41,14 @@
 
 // QCommon
 #include "QCommonConsole.h"
-#include "RangedContainer.h"
 
-bool DevTACCore::initialize(const QByteArray &appName, const QByteArray &appVersion)
+bool DevTACCore::initialize(const std::string &appName, const std::string &appVersion)
 {
-	QCoreApplication::setApplicationName(kProductName);
-	QCoreApplication::setOrganizationName("Qualcomm, Inc.");
-
 	if (_initialized == false)
 	{
-		AppCore* appCore = DevTACCore::appCore();
-
 		_preferences.setAppName(appName, appVersion);
-		appCore->setPreferences(&_preferences);
+
+		AlpacaSharedLibrary::initialize(appName, appVersion, &_preferences);
 
 		InitializeQCommonConsole();
 
@@ -63,36 +58,9 @@ bool DevTACCore::initialize(const QByteArray &appName, const QByteArray &appVers
 	return _initialized;
 }
 
-void DevTACCore::setLoggingState(bool state)
-{
-	AppCore* appCore = DevTACCore::appCore();
-	if (appCore != Q_NULLPTR)
-	{
-		_preferences.setLoggingActive(state);
-		_preferences.saveLoggingActive(state);
-	}
-}
-
-bool DevTACCore::getLoggingState()
-{
-	bool result{false};
-
-	AppCore* appCore = DevTACCore::appCore();
-	if (appCore != Q_NULLPTR)
-	{
-		result = _preferences.loggingActive();
-	}
-
-	return result;
-}
-
-AppCore *DevTACCore::appCore()
-{
-	return AppCore::getAppCore();
-}
-
 AlpacaDevice DevTACCore::getAlpacaDevice(TAC_HANDLE tacHandle)
 {
+	std::lock_guard<std::mutex> lock(_devicesMutex);
 	AlpacaDevice alpacaDevice;
 
 	if (licenseIsValid())
@@ -101,7 +69,7 @@ AlpacaDevice DevTACCore::getAlpacaDevice(TAC_HANDLE tacHandle)
 		{
 			alpacaDevice = _openDevices[tacHandle];
 
-			if (alpacaDevice != Q_NULLPTR)
+			if (alpacaDevice != nullptr)
 				setLastError(alpacaDevice->getLastError());
 		}
 		else
@@ -119,43 +87,57 @@ AlpacaDevice DevTACCore::getAlpacaDevice(TAC_HANDLE tacHandle)
 
 TAC_HANDLE DevTACCore::OpenHandleByDescription(const char *portName)
 {
+	std::lock_guard<std::mutex> lock(_devicesMutex);
 	TAC_HANDLE result{kBadHandle};
 
 	if (licenseIsValid() == true)
 	{
-		for (auto [tacHandle, openDevice]: RangedContainer(_openDevices))
+		for (auto& [tacHandle, openDevice]: _openDevices)
 		{
 			if (openDevice->portName() == portName)
 				return tacHandle;
 
-			if (openDevice->serialNumber().contains(portName))
+			if (openDevice->serialNumber().find(portName) != std::string::npos)
 				return tacHandle;
 		}
 
-		AlpacaDevice alpacaDevice = _AlpacaDevice::findAlpacaDevice(portName);
-		if (alpacaDevice.isNull() == false)
+		AlpacaDevice alpacaDevice = _AlpacaDevice::findAlpacaDevice(std::string(portName));
+		if (alpacaDevice != nullptr)
 		{
-			connect(alpacaDevice.data(), &_AlpacaDevice::errorEvent, this, &DevTACCore::onErrorEvent);
+			AppCore::writeToApplicationLog("[OpenHandleByDescription] Found device: port='" +
+				alpacaDevice->portName() + "' desc='" + alpacaDevice->description() +
+				"' boardType=" + alpacaDevice->debugBoardTypeString() +
+				" platformID=" + std::to_string(static_cast<int>(alpacaDevice->platformID())) +
+				" hasConfig=" + (alpacaDevice->platformConfiguration() ? "yes" : "NO") + "\n");
+
+			alpacaDevice->onErrorEvent = [this](const std::string& msg) { onErrorEvent(msg); };
 
 			if (alpacaDevice->open() == true)
 			{
 				result = alpacaDevice->hash();
-				_openDevices[result] =  alpacaDevice;
+				_openDevices[result] = alpacaDevice;
+				AppCore::writeToApplicationLog("[OpenHandleByDescription] Opened OK, handle=" +
+					std::to_string(result) + "\n");
 			}
 			else
 			{
-				QByteArray lastError = alpacaDevice->getLastError();
-				if (lastError.isEmpty())
-					setLastError(QByteArray(portName) + " can't be opened.");
+				std::string lastError = alpacaDevice->getLastError();
+				AppCore::writeToApplicationLog("[OpenHandleByDescription] open() FAILED. lastError='" +
+					lastError + "'\n");
+
+				if (lastError.empty())
+					setLastError(std::string(portName) + " can't be opened.");
 				else
-					_lastError = lastError;
+					setLastError(lastError);
 
 				alpacaDevice->close();
 			}
 		}
 		else
 		{
-			setLastError(QByteArray(portName) + " can't be opened.");
+			AppCore::writeToApplicationLog("[OpenHandleByDescription] Device '" +
+				std::string(portName) + "' NOT FOUND in enumerated devices\n");
+			setLastError(std::string(portName) + " can't be opened.");
 		}
 	}
 	else
@@ -168,13 +150,22 @@ TAC_HANDLE DevTACCore::OpenHandleByDescription(const char *portName)
 
 TAC_RESULT DevTACCore::CloseTACHandle(TAC_HANDLE tacHandle)
 {
+	std::lock_guard<std::mutex> lock(_devicesMutex);
 	TAC_RESULT result{NO_TAC_ERROR};
 
-	AlpacaDevice alpacaDevice = getAlpacaDevice(tacHandle);
-	if (alpacaDevice.isNull() == false)
+	// Inline the lookup here to avoid double-locking _devicesMutex
+	AlpacaDevice alpacaDevice;
+	if (licenseIsValid())
+	{
+		auto it = _openDevices.find(tacHandle);
+		if (it != _openDevices.end())
+			alpacaDevice = it->second;
+	}
+
+	if (alpacaDevice != nullptr)
 	{
 		alpacaDevice->close();
-		_openDevices.remove(tacHandle);
+		_openDevices.erase(tacHandle);
 	}
 	else
 	{
@@ -184,7 +175,7 @@ TAC_RESULT DevTACCore::CloseTACHandle(TAC_HANDLE tacHandle)
 	return result;
 }
 
-void DevTACCore::onErrorEvent(const QByteArray &message)
+void DevTACCore::onErrorEvent(const std::string &message)
 {
 	setLastError(message);
 }

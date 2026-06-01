@@ -1,5 +1,6 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef PINENTRY_H
+#define PINENTRY_H
+
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -35,76 +36,36 @@
 */
 
 /*
-	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
+    Author: Michael Simpson (msimpson@qti.qualcomm.com)
+            Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+// QCommonConsole
+#include "CommandGroup.h"
+#include "PinID.h"
+#include "StringUtilities.h"
 
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
 #include <string>
+#include <vector>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+struct PinEntry
 {
-public:
-	DevTACCore()
-	{
-	}
-
-	~DevTACCore()
-	{
-	}
-
-	bool initialize(const std::string& appName, const std::string& appVersion);
-
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+    PinID           _pin{0};
+    bool            _enabled{false};
+    HashType        _hash{0};
+    std::string     _pinLabel;
+    std::string     _pinTooltip;
+    bool            _initialValue{false};
+    int             _initializationPriority{0};
+    bool            _inverted{false};
+    std::string     _pinCommand;
+    CommandGroups   _commandGroup{eUnknownCommandGroup};
+    int             _cellX{-1};
+    int             _cellY{-1};
+    std::string     _tabName{"General"};
 };
 
-#endif // TACDEVCORE_H
+typedef std::vector<PinEntry> Pins;
+
+#endif // PINENTRY_H

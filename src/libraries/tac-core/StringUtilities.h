@@ -1,5 +1,5 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef STRINGUTILITIES_H
+#define STRINGUTILITIES_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -36,75 +36,20 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
+#include <cstdint>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
-{
-public:
-	DevTACCore()
-	{
-	}
+typedef uint64_t HashType;
 
-	~DevTACCore()
-	{
-	}
+std::string QCOMMONCONSOLE_EXPORT toCamelCase(const std::string& camelCaseMe, char splitChar = '_');
+bool QCOMMONCONSOLE_EXPORT isAlphaNumeric(const std::string& testMe);
+std::string QCOMMONCONSOLE_EXPORT fromBool(bool value);
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+HashType QCOMMONCONSOLE_EXPORT strHash(const std::string& hashMe);
+HashType QCOMMONCONSOLE_EXPORT arrayHash(const std::string& hashMe);
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
-};
-
-#endif // TACDEVCORE_H
+#endif // STRINGUTILITIES_H

@@ -1,0 +1,32 @@
+#ifndef PIC32CXDEVICE_H
+#define PIC32CXDEVICE_H
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: BSD-3-Clause
+
+// Author:	Biswajit Roy <biswroy@qti.qualcomm.com>
+
+
+#include "AlpacaDevice.h"
+#include "PIC32CXPlatformConfiguration.h"
+
+#include <string>
+
+class QCOMMONCONSOLE_EXPORT PIC32CXDevice : public _AlpacaDevice
+{
+public:
+    PIC32CXDevice() = default;
+    virtual ~PIC32CXDevice();
+
+    static bool programDevice(AlpacaDevice alpacaDevice, PlatformID platformID, std::string& errorMessage);
+    static uint32_t updateAlpacaDevices();
+
+    virtual bool open();
+
+    void buildCommandList();
+    virtual void buildMapping();
+
+private:
+    _PIC32CXPlatformConfiguration* _pic32cxPlatformConfiguration{nullptr};
+};
+
+#endif // PIC32CXDEVICE_H

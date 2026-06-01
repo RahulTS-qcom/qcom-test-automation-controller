@@ -1,24 +1,24 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef TACLITEPROTOCOL_H
+#define TACLITEPROTOCOL_H
 /*
-	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-
+	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+	 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted (subject to the limitations in the
 	disclaimer below) provided that the following conditions are met:
-
+	 
 		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
-
+	 
 		* Redistributions in binary form must reproduce the above
 		  copyright notice, this list of conditions and the following
 		  disclaimer in the documentation and/or other materials provided
 		  with the distribution.
-
+	 
 		* Neither the name of Qualcomm Technologies, Inc. nor the names of its
 		  contributors may be used to endorse or promote products derived
 		  from this software without specific prior written permission.
-
+	 
 	NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 	GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 	HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -34,77 +34,46 @@
 	IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/*
-	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
-*/
+#include "QCommonConsoleGlobal.h"
 
-#include "TACDev.h"
+class TACDriveThread;
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+#include "ProtocolInterface.h"
+#include "ReceiveInterface.h"
+#include "SendInterface.h"
 
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
+#include <cstdint>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+class QCOMMONCONSOLE_EXPORT TACLiteProtocol :
+    public ProtocolInterface,
+    public ReceiveInterface
 {
 public:
-	DevTACCore()
-	{
-	}
+    TACLiteProtocol();
+    virtual ~TACLiteProtocol();
 
-	~DevTACCore()
-	{
-	}
+    void setTACDriveTrain(TACDriveThread* tacDriveTrain);
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+    uint32_t sendCommand(const std::string& command, const Arguments& arguments, bool console = false,
+        ReceiveInterface* receiveInterface = nullptr, bool shouldStore = true);
+    void endTransaction(ReceiveInterface* receiveInterface = nullptr);
+    void sendHelpCommand();
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
+    virtual void receive(FramePackage& framePackage);
+    virtual void idle();
 
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
+protected:
+    virtual void frameComplete(const std::string& completedFrame);
+    virtual void badFrame(const std::string& completedFrame);
 
 private:
-	void onErrorEvent(const std::string& message);
+    TACDriveThread*  _tacDriveTrain{nullptr};
+    uint64_t         _tickCount{0};
+    std::string      _currentCommand;
 
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+    void triggerElapsed();
+    uint32_t queueCommand(const std::string& command);
 };
 
-#endif // TACDEVCORE_H
+#endif // TACLITEPROTOCOL_H

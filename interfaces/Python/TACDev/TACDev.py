@@ -84,8 +84,15 @@ class _SetupTAC:
 
     def setupSharedLibraryPath(self):
         """
-        Configures the shared library path for TAC based on OS and QTAC installation
+        Configures the shared library path for TAC based on OS and QTAC installation.
+        Set TACDEV_DLL_PATH environment variable to override with a custom path.
         """
+        # Allow override via environment variable
+        envPath = os.environ.get("TACDEV_DLL_PATH")
+        if envPath:
+            self.__tacLibraryPath = Path(envPath)
+            return
+
         debugLinuxLibraryPath: Path = Path("/local/mnt/workspace/github/AlpacaRepos/__Builds/Linux/Debug/lib/libTACDev.so")
         debugWindowsLibraryPath: Path = Path("C:/github/AlpacaRepos/__Builds/x64/Debug/bin/TACDevd.dll")
         linuxLibraryPath: Path = Path("/opt/qcom/QTAC/lib/libTACDev.so")

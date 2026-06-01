@@ -1,24 +1,24 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef TABS_H
+#define TABS_H
 /*
-	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-
+	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+	 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted (subject to the limitations in the
 	disclaimer below) provided that the following conditions are met:
-
+	 
 		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
-
+	 
 		* Redistributions in binary form must reproduce the above
 		  copyright notice, this list of conditions and the following
 		  disclaimer in the documentation and/or other materials provided
 		  with the distribution.
-
+	 
 		* Neither the name of Qualcomm Technologies, Inc. nor the names of its
 		  contributors may be used to endorse or promote products derived
 		  from this software without specific prior written permission.
-
+	 
 	NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 	GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 	HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -35,76 +35,48 @@
 */
 
 /*
-	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
+	Author: Biswajit Roy (biswroy@qti.qualcomm.com)
+			Michael Simpson (msimpson@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+#include "StringUtilities.h"
 
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
 #include <string>
+#include <vector>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+struct Tab;
+
+typedef std::vector<Tab> Tabs;
+
+struct QCOMMONCONSOLE_EXPORT Tab
 {
-public:
-	DevTACCore()
-	{
-	}
+	Tab() = default;
+	Tab(const Tab&) = default;
+	~Tab() = default;
 
-	~DevTACCore()
-	{
-	}
+	static HashType makeHash(const Tab& tab);
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+	static Tab  find(HashType hash, Tabs& tabs);
+	static void addTab(Tab& tab, Tabs& tabs);
+	static void removeTab(HashType hash, Tabs& tabs);
+	static void updateTabName(HashType hash, std::string& name, Tabs& tabs);
+	static void setTabVisible(HashType hash, bool visible, Tabs& tabs);
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
+	static std::vector<std::string> toStringList(Tabs& tabs, bool configurableTabs = true);
 
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
+	std::string  _name;
+	bool         _userTab{false};
+	bool         _moveable{false};
+	bool         _configurable{false};
+	bool         _visible{true};
+	int          _ordinal{0};
 
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+	HashType     _hash{0};
+	bool         _deleted{false};
+	bool         _added{false};
+	std::string  _newText;
 };
 
-#endif // TACDEVCORE_H
+#endif // TABS_H

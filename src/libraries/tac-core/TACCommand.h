@@ -1,5 +1,5 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef TACCOMMAND_H
+#define TACCOMMAND_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -36,75 +36,46 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+#include "PinID.h"
+#include "TACCoreTypes.h"
 
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
 #include <string>
+#include <vector>
+#include <map>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+class TACCommand;
+
+typedef std::vector<TACCommand>            TACCommands;
+typedef std::map<std::string, TACCommand>  TACCommandMap;
+
+class QCOMMONCONSOLE_EXPORT TACCommand
 {
 public:
-	DevTACCore()
-	{
-	}
+	TACCommand() = default;
+	TACCommand(const TACCommand&) = default;
+	TACCommand(TACCommand&&) = default;
+	~TACCommand() = default;
+	TACCommand& operator=(const TACCommand&) = default;
+	TACCommand& operator=(TACCommand&&) = default;
 
-	~DevTACCore()
-	{
-	}
+	std::string command();
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+	static bool contains(const std::string& command, const TACCommands& tacCommands);
+	static TACCommand find(const std::string& command, const TACCommands& tacCommands);
+	static TACCommand find(PinID pin, const TACCommands& tacCommands);
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+	PinID        _pin{static_cast<PinID>(-1)};
+	std::string  _command;
+	std::string  _helpText;
+	bool         _currentState{false};
+	bool         _isInverted{false};
+	std::string  _tabName;
+	std::string  _groupName;
+	std::string  _cellLocation;
 };
 
-#endif // TACDEVCORE_H
+#endif // TACCOMMAND_H

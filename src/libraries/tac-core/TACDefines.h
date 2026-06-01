@@ -1,24 +1,24 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef TACDEFINES_H
+#define TACDEFINES_H
 /*
-	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-
+	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+	 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted (subject to the limitations in the
 	disclaimer below) provided that the following conditions are met:
-
+	 
 		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
-
+	 
 		* Redistributions in binary form must reproduce the above
 		  copyright notice, this list of conditions and the following
 		  disclaimer in the documentation and/or other materials provided
 		  with the distribution.
-
+	 
 		* Neither the name of Qualcomm Technologies, Inc. nor the names of its
 		  contributors may be used to endorse or promote products derived
 		  from this software without specific prior written permission.
-
+	 
 	NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 	GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 	HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -36,75 +36,28 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
-
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
 // QCommon
-#include "AlpacaSharedLibrary.h"
+#include "version.h"
 
-#include <map>
-#include <mutex>
+// Standard
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
-{
-public:
-	DevTACCore()
-	{
-	}
+const std::string kAppName("TAC");
+const std::string kAppVersion(TAC_VERSION);
 
-	~DevTACCore()
-	{
-	}
+const std::string kTerminalApp("TACTerminal");
+const std::string kTerminalAppVersion(TAC_TERMINAL_VERSION);
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+const std::string kTACConfigEditorApp("TAC Configuration Editor");
+const std::string kTACConfigEditorVersion(TAC_CONFIG_VERSION);
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
+const std::string kFTDICheckApp("FTDI Check");
+const std::string kFTDICheckVersion(FTDI_CHECK_VERSION);
 
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
+const std::string kInitialString(kAppName + ", version " + kAppVersion);
 
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
+const std::string kTACConfigurationGroup(kAppName);
 
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
-};
-
-#endif // TACDEVCORE_H
+#endif // TACDEFINES_H

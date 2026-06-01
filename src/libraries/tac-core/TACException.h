@@ -1,5 +1,6 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef TACEXCEPTION_H
+#define TACEXCEPTION_H
+
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -39,72 +40,32 @@
 			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
+#include "QCommonConsoleGlobal.h"
 
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
-
-// QCommon
-#include "AlpacaSharedLibrary.h"
-
-#include <map>
-#include <mutex>
+#include <cstdint>
+#include <stdexcept>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+const uint32_t TAC_BUFFER_TOO_SMALL{1};
+const uint32_t TAC_COMMAND_NOT_FOUND{3};
+const uint32_t TAC_BAD_INDEX{4};
+const uint32_t TAC_DEVICE_INACTIVE{5};
+const uint32_t TAC_SCRIPT_VARIABLE_NOT_FOUND{6};
+
+class QCOMMONCONSOLE_EXPORT TACException : public std::exception
 {
 public:
-	DevTACCore()
-	{
-	}
+    TACException(uint32_t errorCode, const std::string& message)
+        : _errorCode(errorCode), _message(message) {}
+    ~TACException() override = default;
 
-	~DevTACCore()
-	{
-	}
-
-	bool initialize(const std::string& appName, const std::string& appVersion);
-
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
-
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
-
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
-
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
-
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
+    const char* what() const noexcept override { return _message.c_str(); }
+    uint32_t    errorCode() const { return _errorCode; }
+    std::string getMessage() const { return _message; }
 
 private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+    std::string  _message;
+    uint32_t     _errorCode{0};
 };
 
-#endif // TACDEVCORE_H
+#endif // TACEXCEPTION_H

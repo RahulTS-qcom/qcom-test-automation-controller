@@ -1,5 +1,5 @@
-#ifndef TACDEVCORE_H
-#define TACDEVCORE_H
+#ifndef ALPACASHAREDLIBRARY_H
+#define ALPACASHAREDLIBRARY_H
 /*
 	Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 
@@ -36,75 +36,53 @@
 
 /*
 	Author: Michael Simpson (msimpson@qti.qualcomm.com)
-			Biswajit Roy (biswroy@qti.qualcomm.com)
 */
 
-#include "TACDev.h"
-
-#include "AlpacaDevice.h"
-#include "TACPreferences.h"
+#include "QCommonConsoleGlobal.h"
 
 // QCommon
-#include "AlpacaSharedLibrary.h"
+#include "AppCore.h"
+#include "PreferencesBase.h"
 
-#include <map>
 #include <mutex>
 #include <string>
 
-class DevTACCore :
-	public AlpacaSharedLibrary
+class QCOMMONCONSOLE_EXPORT AlpacaSharedLibrary
 {
 public:
-	DevTACCore()
-	{
-	}
+    explicit AlpacaSharedLibrary();
+    ~AlpacaSharedLibrary();
 
-	~DevTACCore()
-	{
-	}
+    bool initialize(const std::string& appName, const std::string& appVersion, PreferencesBase* preferencesBase);
 
-	bool initialize(const std::string& appName, const std::string& appVersion);
+    static AppCore* getAppCore();
 
-	AlpacaDevice getAlpacaDevice(TAC_HANDLE tacHandle);
+    bool licenseIsValid();
 
-	TAC_RESULT GetDeviceCount(int* deviceCount)
-	{
-		TAC_RESULT result{TACDEV_INIT_FAILED};
+    void setLoggingState(bool state);
+    bool getLoggingState();
 
-		if (_initialized == true)
-		{
-			std::lock_guard<std::mutex> lock(_devicesMutex);
-			*deviceCount = 0;
-			_AlpacaDevice::updateAlpacaDevices();
-			_AlpacaDevice::getAlpacaDevices(_alpacaDevices);
+    std::string lastError()
+    {
+        std::lock_guard<std::mutex> lock(_errorMutex);
+        std::string result{_lastError};
+        _lastError.clear();
+        return result;
+    }
 
-			*deviceCount = static_cast<int>(_alpacaDevices.size());
+    void setLastError(const std::string& lastError)
+    {
+        std::lock_guard<std::mutex> lock(_errorMutex);
+        _lastError = lastError;
+    }
 
-			result = NO_TAC_ERROR;
-		}
-
-		return result;
-	}
-
-	const AlpacaDevices& GetAlpacaDevices()
-	{
-		std::lock_guard<std::mutex> lock(_devicesMutex);
-		return _alpacaDevices;
-	}
-
-	TAC_HANDLE OpenHandleByDescription(const char* portName);
-	TAC_RESULT CloseTACHandle(TAC_HANDLE tacHandle);
-
-private:
-	void onErrorEvent(const std::string& message);
-
-	bool							_initialized{false};
-	TACPreferences					_preferences;
-	AlpacaDevices					_alpacaDevices;
-	std::mutex						_devicesMutex;
-
-	std::map<TAC_HANDLE, AlpacaDevice>	_openDevices;
-
+protected:
+    mutable std::mutex _errorMutex;
+    std::string    _appName;
+    std::string    _appVersion;
+    std::string    _lastError;
+    static AppCore* _appCore;
+    bool           _validLicense{true};
 };
 
-#endif // TACDEVCORE_H
+#endif // ALPACASHAREDLIBRARY_H
