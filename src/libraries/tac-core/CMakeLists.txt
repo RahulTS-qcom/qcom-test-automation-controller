@@ -60,6 +60,115 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     function(QCommonConsoleSettings target_name)
         # No-op in standalone mode
     endfunction()
+
+    # -----------------------------------------------------------------------
+    # ftd2xx — in the full Qt build this imported target is provided by
+    # third-party/. In standalone top-level mode nothing sets it up, so do it
+    # here (mirrors standalone/CMakeLists.txt). The static lib is shared with
+    # the other builds under __Builds/; download + extract if it is missing.
+    #
+    # ftd2xx.h ships inside qcommon-console, so the header dir is attached to
+    # the imported target's interface includes — FTDIDevice.cpp and friends
+    # then resolve it transitively via target_link_libraries(... ftd2xx).
+    # -----------------------------------------------------------------------
+    if(WIN32)
+        set(_ftdi_cfg "x64")
+    else()
+        set(_ftdi_cfg "Linux")
+    endif()
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(_ftdi_cfg "${_ftdi_cfg}/Debug")
+    else()
+        set(_ftdi_cfg "${_ftdi_cfg}/Release")
+    endif()
+    set(_ftdi_buildroot "${REPO_ROOT}/__Builds/${_ftdi_cfg}")
+
+    if(WIN32)
+        set(FTDI_LIB "${_ftdi_buildroot}/lib/ftd2xx.lib")
+        set(FTDI_URL "https://ftdichip.com/wp-content/uploads/2025/03/CDM-v2.12.36.20-WHQL-Certified.zip")
+        set(_ftdi_main_archive "${REPO_ROOT}/third-party/CDM-v2.12.36.20-WHQL-Certified.zip")
+    else()
+        set(FTDI_LIB "${_ftdi_buildroot}/lib/libftd2xx.a")
+        set(FTDI_URL "https://ftdichip.com/wp-content/uploads/2025/03/libftd2xx-linux-x86_64-1.4.33.tgz")
+        set(_ftdi_main_archive "${REPO_ROOT}/third-party/libftd2xx-linux-x86_64-1.4.33.tgz")
+    endif()
+
+    if(NOT EXISTS "${FTDI_LIB}")
+        message(STATUS "ftd2xx library not found at ${FTDI_LIB}")
+        file(MAKE_DIRECTORY "${_ftdi_buildroot}/lib")
+
+        if(EXISTS "${_ftdi_main_archive}")
+            set(FTDI_ARCHIVE "${_ftdi_main_archive}")
+            message(STATUS "Using pre-downloaded archive: ${FTDI_ARCHIVE}")
+        else()
+            set(FTDI_ARCHIVE "${CMAKE_CURRENT_BINARY_DIR}/ftdi_archive")
+            if(EXISTS "${FTDI_ARCHIVE}")
+                file(REMOVE "${FTDI_ARCHIVE}")
+            endif()
+            message(STATUS "Downloading ftd2xx from ${FTDI_URL}...")
+            file(DOWNLOAD "${FTDI_URL}" "${FTDI_ARCHIVE}" SHOW_PROGRESS STATUS _dl_status TIMEOUT 300)
+            list(GET _dl_status 0 _dl_code)
+            if(NOT _dl_code EQUAL 0)
+                message(FATAL_ERROR
+                    "Failed to download ftd2xx (error ${_dl_code}).\n"
+                    "The FTDI website may block automated downloads.\n"
+                    "Fix: run the full build once (build.bat) to download via third-party/CMakeLists.txt,\n"
+                    "     or manually download from:\n"
+                    "       ${FTDI_URL}\n"
+                    "     and place it at:\n"
+                    "       ${_ftdi_main_archive}")
+            endif()
+        endif()
+
+        set(FTDI_EXTRACT "${CMAKE_CURRENT_BINARY_DIR}/ftdi_extract")
+        file(REMOVE_RECURSE "${FTDI_EXTRACT}")
+        file(MAKE_DIRECTORY "${FTDI_EXTRACT}")
+        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${FTDI_ARCHIVE}"
+                        WORKING_DIRECTORY "${FTDI_EXTRACT}"
+                        RESULT_VARIABLE _tar_result)
+        if(NOT _tar_result EQUAL 0)
+            message(FATAL_ERROR "Failed to extract ${FTDI_ARCHIVE} (exit code ${_tar_result})")
+        endif()
+
+        if(WIN32)
+            file(GLOB _lib "${FTDI_EXTRACT}/amd64/ftd2xx.lib")
+            if(NOT _lib)
+                file(GLOB _lib "${FTDI_EXTRACT}/Static/amd64/ftd2xx.lib")
+            endif()
+            if(NOT _lib)
+                file(GLOB_RECURSE _lib "${FTDI_EXTRACT}/**/ftd2xx.lib")
+            endif()
+            list(LENGTH _lib _lib_count)
+            if(_lib_count EQUAL 0)
+                message(FATAL_ERROR "Could not find ftd2xx.lib in ${FTDI_EXTRACT}")
+            endif()
+            list(GET _lib 0 _lib)
+            file(COPY "${_lib}" DESTINATION "${_ftdi_buildroot}/lib")
+        else()
+            file(GLOB _lib "${FTDI_EXTRACT}/*/libftd2xx-static.a")
+            if(NOT _lib)
+                file(GLOB_RECURSE _lib "${FTDI_EXTRACT}/**/libftd2xx-static.a")
+            endif()
+            list(LENGTH _lib _lib_count)
+            if(_lib_count EQUAL 0)
+                message(FATAL_ERROR "Could not find libftd2xx in ${FTDI_EXTRACT}")
+            endif()
+            list(GET _lib 0 _lib)
+            file(COPY "${_lib}" DESTINATION "${_ftdi_buildroot}/lib")
+            get_filename_component(_lib_name "${_lib}" NAME)
+            if(NOT _lib_name STREQUAL "libftd2xx.a")
+                file(RENAME "${_ftdi_buildroot}/lib/${_lib_name}" "${FTDI_LIB}")
+            endif()
+        endif()
+
+        file(REMOVE_RECURSE "${FTDI_EXTRACT}")
+        message(STATUS "ftd2xx installed to ${FTDI_LIB}")
+    endif()
+
+    add_library(ftd2xx STATIC IMPORTED)
+    set_target_properties(ftd2xx PROPERTIES
+        IMPORTED_LOCATION "${FTDI_LIB}"
+        INTERFACE_INCLUDE_DIRECTORIES "${QCOMMONCONSOLE}")
 else()
     # Subdirectory mode — included from full project
     include(${CMAKE_CURRENT_SOURCE_DIR}/Common.cmake)
@@ -208,7 +317,8 @@ add_library(${LIBRARY_NAME} SHARED
     FrameCoder.cpp FrameCoder.h
     FramePackage.h
     SerialPort.cpp SerialPort.h
-    SerialPortInfo.cpp SerialPortInfo.h
+    SerialPortInfo.cpp SerialPortInfo.h SerialPortInfoPlatform.h
+    TickCount.cpp TickCount.h
 
     # Private drive threads & protocols
     private/TACDriveThread.cpp private/TACDriveThread.h
@@ -239,6 +349,15 @@ add_library(${LIBRARY_NAME} SHARED
     # FTDI specific
     FTDIChipset.cpp FTDIChipset.h
 )
+
+# Platform-divergent SerialPortInfo details — select the implementation at build
+# time rather than guarding with preprocessor directives (mirrors the
+# windows.c / linux.c selection for libserialport above).
+if(WIN32)
+    target_sources(${LIBRARY_NAME} PRIVATE SerialPortInfo_win.cpp)
+else()
+    target_sources(${LIBRARY_NAME} PRIVATE SerialPortInfo_posix.cpp)
+endif()
 
 set_target_properties(${LIBRARY_NAME} PROPERTIES
     VERSION ALPACA_VERSION

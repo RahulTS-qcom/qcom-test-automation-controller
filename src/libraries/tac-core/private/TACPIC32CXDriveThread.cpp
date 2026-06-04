@@ -10,8 +10,12 @@
 #include "TACPIC32CXCommand.h"
 #include "TACCommandHashes.h"
 
+#include "DebugLog.h"
+
 #include <chrono>
 #include <thread>
+
+#define PIC32CX_DBG(msg) TACDEV_DBG_TAG("PIC32CX-Thread", msg)
 
 bool TACPIC32CXDriveThread::_initialized{false};
 
@@ -54,11 +58,15 @@ bool TACPIC32CXDriveThread::openSerialDevice()
     bool result{false};
 
     auto ports = SerialPortInfo::availablePorts();
+    PIC32CX_DBG("Looking for port '" + _portName + "' among " +
+        std::to_string(ports.size()) + " available ports");
     for (const auto& portInfo : ports)
     {
         if (portInfo.portName() == _portName || portInfo.serialNumber() == _portName)
         {
             _tacPortInfo = portInfo;
+            PIC32CX_DBG("Matched port: '" + portInfo.portName() +
+                "' serial='" + portInfo.serialNumber() + "'");
             break;
         }
     }
@@ -82,6 +90,9 @@ bool TACPIC32CXDriveThread::openSerialDevice()
             AppCore::writeToApplicationLogLine("Device " + _tacPortInfo.serialNumber() + " opened");
             AppCore::writeToApplicationLogLine("Com port " + _tacPortInfo.portName() + "\n");
 
+            PIC32CX_DBG("Device " + _tacPortInfo.serialNumber() + " opened");
+            PIC32CX_DBG("Com port " + _tacPortInfo.portName());
+
             {
                 TACPIC32CXCommand tacCommand(this, this);
                 tacCommand.clearBuffer();
@@ -92,6 +103,7 @@ bool TACPIC32CXDriveThread::openSerialDevice()
         else
         {
             AppCore::writeToApplicationLogLine("Unable to open TAC Port. " + serialPortError());
+            PIC32CX_DBG("Failed to open " + _tacPortInfo.portName() + ": " + serialPortError());
             if (onErrorOnOpen) onErrorOnOpen("PIC32CX Device Open Failed. Check the Application Log");
 
             delete _serialPort;
@@ -239,6 +251,8 @@ bool TACPIC32CXDriveThread::readSerialData()
 
     if (!_serialBuffer.empty())
     {
+        PIC32CX_DBG("readSerialData: got " + std::to_string(_serialBuffer.size()) +
+            " bytes: [" + _serialBuffer.substr(0, 60) + "]");
         _protocolInterface->handleRecievedData(_serialBuffer);
         result = true;
     }
@@ -293,6 +307,8 @@ void TACPIC32CXDriveThread::run()
 {
     AppCore::getAppCore()->setRunLogging(AppCore::getAppCore()->getPreferences()->loggingActive());
 
+    PIC32CX_DBG("run() started, port='" + _portName + "'");
+
     if (openSerialDevice() == true)
     {
         if (onDeviceOpen) onDeviceOpen();
@@ -336,13 +352,18 @@ void TACPIC32CXDriveThread::run()
                                 AppCore::writeToApplicationLogLine("Buffer cleared before identifying PIC32CX board");
                         }
 
+                        PIC32CX_DBG("WRITE cmd='" + framePackage->_request + "' encoded=" +
+                            std::to_string(framePackage->_codedRequest.size()) + " bytes: [" +
+                            framePackage->_codedRequest.substr(0, 60) + "]");
                         int64_t bytesWritten = _serialPort->write(framePackage->_codedRequest);
+                        PIC32CX_DBG("WRITE result: " + std::to_string(bytesWritten) + " bytes written");
                         if (bytesWritten == -1)
                         {
                             AppCore::writeToApplicationLogLine("TACPIC32CXDriveThread::run()::bytesWritten == -1");
                             std::string errorString = _serialPort->errorString();
                             if (!errorString.empty())
                                 AppCore::writeToApplicationLogLine("Error on write " + errorString);
+                            PIC32CX_DBG("WRITE FAILED: " + errorString);
                             stopRunning();
                         }
                     }
@@ -363,9 +384,11 @@ void TACPIC32CXDriveThread::run()
 
         _serialPort->close();
         _connected = false;
+        PIC32CX_DBG("Serial port closed, run() exiting normally");
     }
     else
     {
+        PIC32CX_DBG("openSerialDevice() FAILED — run() exiting");
         if (onErrorOnOpen) onErrorOnOpen("PIC32CX device open failed");
     }
 

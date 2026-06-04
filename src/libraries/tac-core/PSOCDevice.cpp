@@ -176,7 +176,13 @@ bool PSOCDevice::open()
             }
             else if (_lastError.empty())
             {
-                _lastError = "PSOC board did not respond to discovery commands within timeout";
+                // Prefer the drive thread's real failure (e.g. "Failed to open
+                // COM21: Access is denied.") over the generic timeout — the port
+                // may never have opened, in which case discovery could not run.
+                std::string threadError = _driveThread->lastErrorMessage();
+                _lastError = !threadError.empty()
+                    ? threadError
+                    : "PSOC board did not respond to discovery commands within timeout";
                 PSOC_DBG(_lastError);
             }
         }
